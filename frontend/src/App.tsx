@@ -13,6 +13,7 @@ import {
     RectangleHorizontal,
     RotateCcw,
     SunMedium,
+    Trash2,
     Minus,
     Move3D,
     Info,
@@ -172,18 +173,16 @@ export default function App() {
         <div className={`app-shell ${ui.darkMode ? "dark" : ""}`}>
             <input ref={fileInputRef} type="file" accept=".cnvs" style={{ display: "none" }} onChange={handleFileChange} />
             <div className="mode-bar">
-                <button className="bar-icon" title="Undo" onClick={() => editor?.undo()}><RotateCcw size={18} strokeWidth={2.1} /></button>
-                <button className="bar-icon" title="Redo" onClick={() => editor?.redo()}><Redo2 size={18} strokeWidth={2.1} /></button>
-                <button className="bar-icon" title="Toggle theme" onClick={() => editor?.setDarkMode(!ui.darkMode)}>{ui.darkMode ? <SunMedium size={18} strokeWidth={2.1} /> : <MoonStar size={18} strokeWidth={2.1} />}</button>
-                <button className="bar-icon" title="Export GLB" onClick={() => editor?.exportGLB()}><Download size={18} strokeWidth={2.1} /></button>
+                <button className="bar-icon tooltip-host" data-tooltip="Undo" aria-label="Undo" onClick={() => editor?.undo()}><RotateCcw size={18} strokeWidth={2.1} /></button>
+                <button className="bar-icon tooltip-host" data-tooltip="Redo" aria-label="Redo" onClick={() => editor?.redo()}><Redo2 size={18} strokeWidth={2.1} /></button>
+                <button className="bar-icon tooltip-host" data-tooltip="Toggle theme" aria-label="Toggle theme" onClick={() => editor?.setDarkMode(!ui.darkMode)}>{ui.darkMode ? <SunMedium size={18} strokeWidth={2.1} /> : <MoonStar size={18} strokeWidth={2.1} />}</button>
+                <button className="bar-icon tooltip-host" data-tooltip="Export GLB" aria-label="Export GLB" onClick={() => editor?.exportGLB()}><Download size={18} strokeWidth={2.1} /></button>
                 <button className="bar-text" onClick={() => editor?.saveFile()}>Save</button>
                 <button className="bar-text" onClick={handleLoad}>Load</button>
                 <div className="divider" />
                 <button className="bar-text" onClick={handleOpenDrawTogether}>Draw together</button>
                 <button className="bar-text" onClick={handleDisconnect}>Leave</button>
                 <span className="session-status">{sessionStatus}</span>
-                <div className="divider" />
-                <ModeButton label="Transform" active={ui.tool === "select"} onClick={() => editor?.setTransformMode("both")} />
                 <div className="divider" />
                 <Toggle label="Grid" active={ui.gridVisible} onClick={() => editor?.setGridVisible(!ui.gridVisible)} />
                 <label className="control-group">
@@ -216,6 +215,13 @@ export default function App() {
 
             <main className="workspace">
                 <aside className="left-rail">
+                    <RailButton
+                        icon={<span className="rail-glyph">G</span>}
+                        title="Transform"
+                        tool="select"
+                        active={ui.tool === "select"}
+                        onClick={() => editor?.setTransformMode("both")}
+                    />
                     <RailButton icon={<MousePointer2 size={16} strokeWidth={2.1} />} title="Select" tool="select" active={ui.tool === "select"} disabled={ui.tool === "select"} onClick={() => editor?.setTool("select")} />
                     <RailButton icon={<Move3D size={16} strokeWidth={2.1} />} title="Move guide" tool="plane" active={ui.tool === "plane"} onClick={() => editor?.setTool("plane")} />
                     <div className="rail-separator" />
@@ -304,9 +310,9 @@ export default function App() {
                                 return (
                                     <button
                                         key={object.id}
-                                        className={`object-row ${active ? "active" : ""}`}
+                                        className={`object-row tooltip-host ${active ? "active" : ""}`}
                                         onClick={() => editor?.selectObject(object.id)}
-                                        title={`${object.planes.length} plane${object.planes.length === 1 ? "" : "s"}`}
+                                        data-tooltip={`${object.planes.length} plane${object.planes.length === 1 ? "" : "s"}`}
                                     >
                                         <span className="object-name">{object.name}</span>
                                         <span className="object-meta">{object.planes.length}</span>
@@ -332,7 +338,9 @@ export default function App() {
                                         onClick={() => editor?.selectLayer(layer.id)}
                                     >
                                         <button
-                                            title={layer.visible ? "Hide layer" : "Show layer"}
+                                            className="tooltip-host"
+                                            data-tooltip={layer.visible ? "Hide layer" : "Show layer"}
+                                            aria-label={layer.visible ? "Hide layer" : "Show layer"}
                                             onClick={(event) => {
                                                 event.stopPropagation();
                                                 editor?.toggleLayerVisible(layer.id);
@@ -341,7 +349,9 @@ export default function App() {
                                             {layer.visible ? "V" : "H"}
                                         </button>
                                         <button
-                                            title={layer.locked ? "Unlock layer" : "Lock layer"}
+                                            className="tooltip-host"
+                                            data-tooltip={layer.locked ? "Unlock layer" : "Lock layer"}
+                                            aria-label={layer.locked ? "Unlock layer" : "Lock layer"}
                                             onClick={(event) => {
                                                 event.stopPropagation();
                                                 editor?.toggleLayerLocked(layer.id);
@@ -350,15 +360,17 @@ export default function App() {
                                             {layer.locked ? "L" : "U"}
                                         </button>
                                         <input
-                                            className="layer-name-input"
+                                            className="layer-name-input tooltip-host"
                                             value={layer.name}
-                                            title={`${layer.worldPlanes.length} plane${layer.worldPlanes.length === 1 ? "" : "s"}`}
+                                            data-tooltip={`${layer.worldPlanes.length} plane${layer.worldPlanes.length === 1 ? "" : "s"}`}
                                             onFocus={() => editor?.selectLayer(layer.id)}
                                             onClick={() => editor?.selectLayer(layer.id)}
                                             onChange={(event) => editor?.renameLayer(layer.id, event.target.value)}
                                         />
                                         <button
-                                            title="Move up"
+                                            className="tooltip-host"
+                                            data-tooltip="Move up"
+                                            aria-label="Move up"
                                             disabled={index === 0}
                                             onClick={(event) => {
                                                 event.stopPropagation();
@@ -368,7 +380,9 @@ export default function App() {
                                             <ChevronUp size={16} strokeWidth={2.1} />
                                         </button>
                                         <button
-                                            title="Move down"
+                                            className="tooltip-host"
+                                            data-tooltip="Move down"
+                                            aria-label="Move down"
                                             disabled={index === ui.layers.length - 1}
                                             onClick={(event) => {
                                                 event.stopPropagation();
@@ -378,7 +392,9 @@ export default function App() {
                                             <ChevronDown size={16} strokeWidth={2.1} />
                                         </button>
                                         <button
-                                            title="Merge down"
+                                            className="tooltip-host"
+                                            data-tooltip="Merge down"
+                                            aria-label="Merge down"
                                             disabled={index === ui.layers.length - 1}
                                             onClick={(event) => {
                                                 event.stopPropagation();
@@ -388,14 +404,16 @@ export default function App() {
                                             M
                                         </button>
                                         <button
-                                            title="Delete layer"
+                                            className="tooltip-host"
+                                            data-tooltip="Delete layer"
+                                            aria-label="Delete layer"
                                             disabled={ui.layers.length <= 1}
                                             onClick={(event) => {
                                                 event.stopPropagation();
                                                 editor?.deleteLayer(layer.id);
                                             }}
                                         >
-                                            Ă—
+                                            <Trash2 size={14} strokeWidth={2.2} />
                                         </button>
                                     </div>
                                 );
@@ -443,16 +461,12 @@ function generateSessionCode() {
     return code;
 }
 
-function ModeButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-    return <button className={`tool-mode-button ${active ? "active" : ""}`} onClick={onClick}><span className="tool-dot" />{label}</button>;
-}
-
 function Toggle({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
     return <button className="toggle-row ghost-button" onClick={onClick}><span className={`switch ${active ? "on" : ""}`} />{label}</button>;
 }
 
 function RailButton({ icon, title, active, disabled, onClick }: { icon: React.ReactNode; title: string; tool: Tool; active: boolean; disabled?: boolean; onClick: () => void }) {
-    return <button className={`rail-button ${active ? "active" : ""}`} title={title} disabled={disabled} onClick={onClick}>{icon}</button>;
+    return <button className={`rail-button tooltip-host ${active ? "active" : ""}`} data-tooltip={title} data-tooltip-side="right" aria-label={title} disabled={disabled} onClick={onClick}>{icon}</button>;
 }
 
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: string) => void }) {
