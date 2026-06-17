@@ -4,17 +4,21 @@ import type {
     EditorUiState,
     GuideValues,
     Layer,
-    SavedObject,
     PlaneInfo,
     PlaneType,
+    SavedObject,
     Stroke,
     Tool,
     TransformMode,
     WorldPlane
 } from "../types";
+import type { ProjectData } from "./serializer";
 import { FreeFlyControls } from "./freeFlyControls";
 import {
     exportGLB,
+    applyProjectData,
+    applyCollaborativeProjectData,
+    createProjectData,
     loadFile,
     redo,
     restore,
@@ -400,6 +404,18 @@ export class WorldEditor {
 
     loadFile(buffer: ArrayBuffer) {
         loadFile(this, buffer);
+    }
+
+    getProjectData() {
+        return createProjectData(this);
+    }
+
+    applyProjectData(data: ProjectData) {
+        applyProjectData(this, data);
+    }
+
+    applyCollaborativeProjectData(data: ProjectData) {
+        applyCollaborativeProjectData(this, data);
     }
 
     private restoreFromProject(data: any) { restoreFromProject(this, data); }

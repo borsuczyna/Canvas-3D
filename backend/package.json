@@ -1,0 +1,20 @@
+{
+    "name": "canvas-backend",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc --noEmit",
+        "start": "node dist/server.js"
+    },
+    "dependencies": {
+        "ws": "^8.18.3"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.13",
+        "@types/ws": "^8.18.1",
+        "tsx": "^4.20.3",
+        "typescript": "^6.0.3"
+    }
+}

@@ -3,8 +3,8 @@ import { exportVisibleLayersGLB } from "../exporter";
 
 type EditorHost = any;
 
-export function saveFile(host: EditorHost) {
-    const data: ProjectData = {
+export function createProjectData(host: EditorHost): ProjectData {
+    return {
         layers: host.layers,
         savedObjects: host.savedObjects,
         activeLayerId: host.activeLayerId,
@@ -18,7 +18,10 @@ export function saveFile(host: EditorHost) {
         darkMode: host.darkMode,
         gridVisible: host.gridVisible,
     };
-    const bytes = encodeProject(data);
+}
+
+export function saveFile(host: EditorHost) {
+    const bytes = encodeProject(createProjectData(host));
     const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: "application/octet-stream" }));
     const a = document.createElement("a");
     a.href = url;
@@ -60,6 +63,30 @@ export function restoreFromProject(host: EditorHost, data: ProjectData) {
     host.applyTheme();
     host.gridVisible = data.gridVisible;
     host.grid.visible = data.gridVisible;
+    host.rebuildRuntimeFromState();
+    host.updateAllStrokeMaterials();
+    host.isRestoring = false;
+}
+
+export function applyProjectData(host: EditorHost, data: ProjectData) {
+    restoreFromProject(host, data);
+}
+
+export function applyCollaborativeProjectData(host: EditorHost, data: ProjectData) {
+    host.isRestoring = true;
+    host.layers = data.layers;
+    host.savedObjects = data.savedObjects ?? [];
+
+    if (!host.layers.some((layer: { id: string }) => layer.id === host.activeLayerId)) {
+        host.activeLayerId = host.layers[0]?.id || null;
+    }
+
+    const activeLayer = host.layers.find((layer: { id: string; worldPlanes: { id: string }[] }) => layer.id === host.activeLayerId) || null;
+    const activePlaneExists = activeLayer?.worldPlanes.some((plane: { id: string }) => plane.id === host.activePlaneId);
+    if (!activePlaneExists) {
+        host.activePlaneId = activeLayer?.worldPlanes[0]?.id || null;
+    }
+
     host.rebuildRuntimeFromState();
     host.updateAllStrokeMaterials();
     host.isRestoring = false;

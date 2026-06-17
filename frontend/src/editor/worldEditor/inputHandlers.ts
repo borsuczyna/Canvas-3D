@@ -20,25 +20,23 @@ export function handleGlobalKeyDown(host: EditorHost, event: KeyboardEvent) {
 
     if (isTextEditingTarget(event.target)) return;
 
-    if (event.shiftKey) {
-        if (key === "z") {
-            event.preventDefault();
-            host.setPlaneType("XY");
-            host.setStatus("Plane orientation set to XY.");
-            return;
-        }
-        if (key === "x") {
-            event.preventDefault();
-            host.setPlaneType("XZ");
-            host.setStatus("Plane orientation set to XZ.");
-            return;
-        }
-        if (key === "c") {
-            event.preventDefault();
-            host.setPlaneType("YZ");
-            host.setStatus("Plane orientation set to YZ.");
-            return;
-        }
+    if (key === "z") {
+        event.preventDefault();
+        host.setPlaneType("XY");
+        host.setStatus("Plane orientation set to XY.");
+        return;
+    }
+    if (key === "x") {
+        event.preventDefault();
+        host.setPlaneType("XZ");
+        host.setStatus("Plane orientation set to XZ.");
+        return;
+    }
+    if (key === "c") {
+        event.preventDefault();
+        host.setPlaneType("YZ");
+        host.setStatus("Plane orientation set to YZ.");
+        return;
     }
 
     if (key === "g") {
@@ -56,7 +54,7 @@ export function handleGlobalKeyDown(host: EditorHost, event: KeyboardEvent) {
         host.setTool("line");
         return;
     }
-    if (key === "c") {
+    if (key === "o") {
         event.preventDefault();
         host.setTool("circle");
         return;
