@@ -24,7 +24,7 @@ import { MultiplayerSession } from "./network/multiplayer";
 
 const initialSessionParam = new URLSearchParams(window.location.search).get("session");
 const defaultSessionId = initialSessionParam ?? "default";
-const backendUrl = import.meta.env.VITE_BACKEND_WS_URL ?? "ws://localhost:3001";
+const backendUrl = import.meta.env.VITE_BACKEND_WS_URL ?? "ws://168.119.180.164:3002";
 const SESSION_CODE_LENGTH = 6;
 
 const initialState: EditorUiState = {

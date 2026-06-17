@@ -35,6 +35,8 @@ type Room = {
 const rooms = new Map<string, Room>();
 const server = createServer();
 const wss = new WebSocketServer({ server });
+const port = Number(process.env.PORT ?? 3002);
+const host = process.env.HOST ?? "0.0.0.0";
 
 wss.on("connection", (socket) => {
     const clientId = randomUUID();
@@ -85,8 +87,8 @@ wss.on("connection", (socket) => {
     });
 });
 
-server.listen(3001, () => {
-    console.log("Canvas multiplayer backend listening on ws://localhost:3001");
+server.listen(port, host, () => {
+    console.log(`Canvas multiplayer backend listening on ws://${host}:${port}`);
 });
 
 function getRoom(sessionId: string): Room {
