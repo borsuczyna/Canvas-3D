@@ -2,7 +2,7 @@
 import { makeId } from "./strokes";
 
 const MAGIC = [0x43, 0x4e, 0x56, 0x53]; // "CNVS"
-const VERSION = 2;
+const VERSION = 3;
 const PLANE_TYPES: PlaneType[] = ["XY", "XZ", "YZ"];
 const TRANSFORM_MODES: TransformMode[] = ["translate", "rotate", "both"];
 
@@ -16,7 +16,7 @@ export type ProjectData = {
     guideChanged: boolean;
     guidePosition: number[];
     guideQuaternion: number[];
-    brush: { color: string; size: number; opacity: number };
+    brush: { color: string; size: number; opacity: number; smoothing: number };
     darkMode: boolean;
     gridVisible: boolean;
 };
@@ -127,6 +127,7 @@ export function encodeProject(data: ProjectData): Uint8Array {
     w.color(data.brush.color);
     w.f32(data.brush.size);
     w.f32(data.brush.opacity);
+    w.f32(data.brush.smoothing);
 
     // Active indices (0xFFFF = none)
     const layerIdx = data.activeLayerId
@@ -205,7 +206,7 @@ export function decodeProject(buffer: ArrayBuffer): ProjectData {
         if (r.u8() !== expected) throw new Error("Not a CNVS file");
     }
     const version = r.u8();
-    if (version !== 1 && version !== VERSION) throw new Error(`Unsupported version ${version}`);
+    if (version !== 1 && version !== 2 && version !== VERSION) throw new Error(`Unsupported version ${version}`);
 
     const flags = r.u8();
     const darkMode    = !!(flags & 1);
@@ -221,6 +222,7 @@ export function decodeProject(buffer: ArrayBuffer): ProjectData {
     const brushColor   = r.color();
     const brushSize    = r.f32();
     const brushOpacity = r.f32();
+    const brushSmoothing = version >= 3 ? r.f32() : 0.35;
 
     const activeLayerIdx = r.u16();
     const activePlaneIdx = r.u16();
@@ -306,7 +308,7 @@ export function decodeProject(buffer: ArrayBuffer): ProjectData {
     return {
         layers, savedObjects, activeLayerId, activePlaneId, planeType, transformMode,
         guideChanged, guidePosition, guideQuaternion,
-        brush: { color: brushColor, size: brushSize, opacity: brushOpacity },
+        brush: { color: brushColor, size: brushSize, opacity: brushOpacity, smoothing: brushSmoothing },
         darkMode, gridVisible,
     };
 }

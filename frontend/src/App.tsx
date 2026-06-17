@@ -40,7 +40,7 @@ const initialState: EditorUiState = {
     darkMode: false,
     gridVisible: true,
     snapping: true,
-    brush: { color: "#111827", size: 0.45, opacity: 1 },
+    brush: { color: "#111827", size: 0.45, opacity: 1, smoothing: 0.35 },
     guide: { posX: 0, posY: 0, posZ: 0, rotX: -90, rotY: 0, rotZ: 0 },
     planeInfo: null,
     status: "Ready"
@@ -211,6 +211,14 @@ export default function App() {
                         <span className="range-value">{ui.brush.size.toFixed(2)}</span>
                     </span>
                 </label>
+                <label className="control-group control-size">
+                    <span className="control-label">Smooth</span>
+                    <span className="range-wrap">
+                        <input className="ui-range" type="range" min="0" max="1" step="0.01" value={ui.brush.smoothing}
+                            onChange={(event) => editor?.setBrush({ smoothing: parseFloat(event.target.value) })} />
+                        <span className="range-value">{ui.brush.smoothing.toFixed(2)}</span>
+                    </span>
+                </label>
             </div>
 
             <main className="workspace">
@@ -222,7 +230,7 @@ export default function App() {
                         active={ui.tool === "select"}
                         onClick={() => editor?.setTransformMode("both")}
                     />
-                    <RailButton icon={<MousePointer2 size={16} strokeWidth={2.1} />} title="Select" tool="select" active={ui.tool === "select"} disabled={ui.tool === "select"} onClick={() => editor?.setTool("select")} />
+                    <RailButton icon={<MousePointer2 size={16} strokeWidth={2.1} />} title="Select" tool="select" active={ui.tool === "select"} disabled={ui.tool === "select"} onClick={() => editor?.setTransformMode("both")} />
                     <RailButton icon={<Move3D size={16} strokeWidth={2.1} />} title="Move guide" tool="plane" active={ui.tool === "plane"} onClick={() => editor?.setTool("plane")} />
                     <div className="rail-separator" />
                     <RailButton icon={<Pencil size={16} strokeWidth={2.1} />} title="Brush" tool="brush" active={ui.tool === "brush"} onClick={() => editor?.setTool("brush")} />

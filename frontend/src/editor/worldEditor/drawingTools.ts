@@ -10,20 +10,22 @@ export function updateBrushGhost(host: EditorHost, event: PointerEvent) {
         host.brushGhostLine.visible = false;
         return;
     }
+    const useGuide = Boolean(host.guideChanged);
     const plane = host.getActivePlane();
     const runtime = plane && host.planeRuntime.get(plane.id);
-    if (!plane || !runtime) {
-        host.brushGhostLine.visible = false;
-        return;
-    }
-    const localPoint = host.intersectActivePlane(event);
+    const localPoint = useGuide ? host.intersectGuidePlane(event) : host.intersectActivePlane(event);
     if (!localPoint) {
         host.brushGhostLine.visible = false;
         return;
     }
-    const worldPos = runtime.group.localToWorld(new THREE.Vector3(localPoint.x, localPoint.y, 0.01));
+    const targetGroup = useGuide ? host.drawingGuide.group : runtime?.group;
+    if (!targetGroup) {
+        host.brushGhostLine.visible = false;
+        return;
+    }
+    const worldPos = targetGroup.localToWorld(new THREE.Vector3(localPoint.x, localPoint.y, 0.01));
     host.brushGhostLine.position.copy(worldPos);
-    host.brushGhostLine.quaternion.copy(runtime.group.getWorldQuaternion(new THREE.Quaternion()));
+    host.brushGhostLine.quaternion.copy(targetGroup.getWorldQuaternion(new THREE.Quaternion()));
     host.brushGhostLine.scale.setScalar(host.brush.size * 0.5);
     const mat = host.brushGhostLine.material as THREE.LineBasicMaterial;
     mat.color.set(host.tool === "brush" ? host.brush.color : "#ff6666");

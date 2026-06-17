@@ -102,6 +102,7 @@ export type EditorUiState = {
         color: string;
         size: number;
         opacity: number;
+        smoothing: number;
     };
     guide: GuideValues;
     planeInfo: PlaneInfo | null;

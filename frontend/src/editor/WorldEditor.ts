@@ -96,6 +96,7 @@ export class WorldEditor {
     private grid = new THREE.GridHelper(2000, 200, 0x9aa6b8, 0xd8dee8);
     private axisHelper = new THREE.AxesHelper(8);
     private drawingGuide = this.createDrawingGuide();
+    private anchoredGuideGhost = this.createAnchoredGuideGhost();
     private tcTranslate: TransformControls;
     private thTranslate: THREE.Object3D;
     private tcRotate: TransformControls;
@@ -114,11 +115,13 @@ export class WorldEditor {
     private tool: Tool = "brush";
     private transformMode: TransformMode = "translate";
     private planeType: PlaneType = "XZ";
-    private brush = { color: "#111827", size: 0.45, opacity: 1 };
+    private brush = { color: "#111827", size: 0.45, opacity: 1, smoothing: 0.35 };
     private drawingStroke: Stroke | null = null;
     private drawingMesh: THREE.Mesh | null = null;
     private isPointerDrawing = false;
     private guideChanged = true;
+    private previousCameraPosition = new THREE.Vector3();
+    private previousCameraQuaternion = new THREE.Quaternion();
     private darkMode = false;
     private gridVisible = true;
     private snapping = true;
@@ -130,6 +133,7 @@ export class WorldEditor {
     private shapePreviewLine: THREE.Line | null = null;
     private shapeStart: { x: number; y: number } | null = null;
     private shapeEnd: { x: number; y: number } | null = null;
+    private isApplyingGuideConstraints = false;
     private placement: PlacementState = {
         active: false,
         stage: "preview",
@@ -146,6 +150,8 @@ export class WorldEditor {
         this.renderer.setClearColor(0xf6f7fb, 1);
         this.scene.fog = new THREE.FogExp2(0xf6f7fb, 0.00045);
         this.camera.position.set(10, 10, 14);
+        this.previousCameraPosition.copy(this.camera.position);
+        this.previousCameraQuaternion.copy(this.camera.quaternion);
 
         this.layersRoot.name = "Editable_Layers";
         this.scene.add(this.layersRoot);
@@ -155,6 +161,7 @@ export class WorldEditor {
         this.scene.add(this.axisHelper);
         this.scene.add(new THREE.HemisphereLight(0xffffff, 0xdde6f2, 1.1));
         this.scene.add(this.drawingGuide.group);
+        this.scene.add(this.anchoredGuideGhost);
 
         const ghostPts: THREE.Vector3[] = [];
         for (let i = 0; i < 64; i++) {
@@ -185,6 +192,7 @@ export class WorldEditor {
             this.cameraControls.enabled = !dragging;
         });
         this.tcTranslate.addEventListener("objectChange", () => {
+            this.applyGuideModeConstraints(false);
             this.guideChanged = true;
             this.emit();
         });
@@ -205,6 +213,7 @@ export class WorldEditor {
             this.cameraControls.enabled = !dragging;
         });
         this.tcRotate.addEventListener("objectChange", () => {
+            this.applyGuideModeConstraints(false);
             this.guideChanged = true;
             this.emit();
         });
@@ -299,6 +308,7 @@ export class WorldEditor {
         this.saveHistory();
         this.planeType = planeType;
         this.setGuideOrientation(planeType);
+        this.applyGuideModeConstraints(true);
         this.emit();
     }
 
@@ -334,6 +344,7 @@ export class WorldEditor {
             THREE.MathUtils.degToRad(values.rotZ),
             "XYZ"
         );
+        this.applyGuideModeConstraints(true);
         this.guideChanged = true;
         this.emit();
     }
@@ -544,8 +555,42 @@ export class WorldEditor {
         return { group, surface };
     }
 
+    private createAnchoredGuideGhost() {
+        const ghost = new THREE.Mesh(
+            new THREE.PlaneGeometry(1, 1),
+            new THREE.MeshBasicMaterial({
+                color: 0x2563eb,
+                transparent: true,
+                opacity: 0.08,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+                depthTest: false
+            })
+        );
+        ghost.name = "Drawing_Plane_Anchored_Ghost";
+        ghost.renderOrder = 95;
+        ghost.visible = false;
+        return ghost;
+    }
+
+    private updateAnchoredGuideGhost() {
+        const plane = this.getActivePlane();
+        const runtime = plane ? this.planeRuntime.get(plane.id) : null;
+        if (!plane || !runtime || !this.guideChanged) {
+            this.anchoredGuideGhost.visible = false;
+            return;
+        }
+
+        runtime.hitSurface.updateWorldMatrix(true, false);
+        runtime.hitSurface.getWorldPosition(this.anchoredGuideGhost.position);
+        runtime.hitSurface.getWorldQuaternion(this.anchoredGuideGhost.quaternion);
+        runtime.hitSurface.getWorldScale(this.anchoredGuideGhost.scale);
+        this.anchoredGuideGhost.visible = true;
+    }
+
     private setGuideOrientation(planeType: PlaneType) {
         this.drawingGuide.group.quaternion.copy(this.orientationQuaternion(planeType));
+        this.applyGuideModeConstraints(true);
         this.guideChanged = true;
     }
 
@@ -553,8 +598,57 @@ export class WorldEditor {
         this.drawingGuide.group.position.fromArray(plane.position);
         this.drawingGuide.group.quaternion.fromArray(plane.quaternion);
         this.planeType = plane.planeType;
+        this.applyGuideModeConstraints(false);
         this.guideChanged = false;
         this.emit();
+    }
+
+    private applyGuideModeConstraints(lockCameraFacingPosition: boolean) {
+        if (this.isApplyingGuideConstraints) return;
+        this.isApplyingGuideConstraints = true;
+
+        const guide = this.drawingGuide.group;
+        const beforePosition = guide.position.clone();
+        const beforeQuaternion = guide.quaternion.clone();
+
+        this.tcTranslate.showX = this.planeType === "YZ";
+        this.tcTranslate.showY = this.planeType === "XZ";
+        this.tcTranslate.showZ = this.planeType === "XY";
+
+        this.tcRotate.showX = this.planeType !== "YZ";
+        this.tcRotate.showY = this.planeType !== "XZ";
+        this.tcRotate.showZ = this.planeType !== "XY";
+
+        if (lockCameraFacingPosition) {
+            const forward = this.camera.getWorldDirection(new THREE.Vector3()).normalize();
+            const anchorDistance = 60;
+            const anchor = this.camera.position.clone().add(forward.multiplyScalar(anchorDistance));
+
+            if (this.planeType === "XZ") {
+                guide.position.x = anchor.x;
+                guide.position.z = anchor.z;
+            } else if (this.planeType === "XY") {
+                guide.position.x = anchor.x;
+                guide.position.y = anchor.y;
+            } else {
+                guide.position.y = anchor.y;
+                guide.position.z = anchor.z;
+            }
+        }
+
+        const baseEuler = new THREE.Euler().setFromQuaternion(this.orientationQuaternion(this.planeType), "XYZ");
+        const euler = new THREE.Euler().setFromQuaternion(guide.quaternion, "XYZ");
+
+        if (this.planeType === "XZ") euler.y = baseEuler.y;
+        if (this.planeType === "XY") euler.z = baseEuler.z;
+        if (this.planeType === "YZ") euler.x = baseEuler.x;
+
+        guide.rotation.set(euler.x, euler.y, euler.z, "XYZ");
+
+        this.isApplyingGuideConstraints = false;
+        const positionChanged = beforePosition.distanceToSquared(guide.position) > 1e-10;
+        const rotationChanged = 1 - Math.abs(beforeQuaternion.dot(guide.quaternion)) > 1e-10;
+        return positionChanged || rotationChanged;
     }
 
     private syncDrawingPlaneFromGuide() {
@@ -621,7 +715,24 @@ export class WorldEditor {
     private continueStroke(localPoint: { x: number; y: number }) {
         const stroke = this.drawingStroke;
         if (!stroke || !this.drawingMesh) return;
-        if (!simplifyAppend(stroke.points, localPoint, Math.max(0.015, stroke.brushSize * 0.2))) return;
+
+        const smooth = THREE.MathUtils.clamp(this.brush.smoothing, 0, 1);
+        const last = stroke.points[stroke.points.length - 1] ?? localPoint;
+
+        // High smoothing makes points follow the pointer with a soft lag, which rounds corners.
+        const follow = 1 - smooth * 0.88;
+        const filteredPoint = smooth <= 0.001
+            ? localPoint
+            : {
+                x: last.x + (localPoint.x - last.x) * follow,
+                y: last.y + (localPoint.y - last.y) * follow,
+            };
+
+        const tolerance = Math.max(0.003, stroke.brushSize * (0.06 + (1 - smooth) * 0.14));
+        if (!simplifyAppend(stroke.points, filteredPoint, tolerance)) {
+            stroke.points[stroke.points.length - 1] = filteredPoint;
+        }
+
         this.drawingMesh.geometry.dispose();
         this.drawingMesh.geometry = buildStrokeGeometry(stroke);
         this.updatePlaneRuntimeGeometry(this.getActivePlane());
@@ -692,6 +803,20 @@ export class WorldEditor {
         const hit = new THREE.Vector3();
         if (!this.pointerRay.intersectPlane(this.pointerPlane, hit)) return null;
         const local = runtime.group.worldToLocal(hit);
+        return { x: local.x, y: local.y };
+    }
+
+    private intersectGuidePlane(event: PointerEvent) {
+        this.setPointerFromEvent(event);
+        this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+        this.pointerRay.copy(this.raycaster.ray);
+        const guide = this.drawingGuide.group;
+        const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(guide.getWorldQuaternion(new THREE.Quaternion())).normalize();
+        const origin = guide.getWorldPosition(new THREE.Vector3());
+        this.pointerPlane.setFromNormalAndCoplanarPoint(normal, origin);
+        const hit = new THREE.Vector3();
+        if (!this.pointerRay.intersectPlane(this.pointerPlane, hit)) return null;
+        const local = guide.worldToLocal(hit);
         return { x: local.x, y: local.y };
     }
 
@@ -766,6 +891,7 @@ export class WorldEditor {
     private attachTransformToGuide() {
         this.tcTranslate.attach(this.drawingGuide.group);
         this.tcRotate.attach(this.drawingGuide.group);
+        this.applyGuideModeConstraints(false);
         const select = this.tool === "select";
         const showT = select && (this.transformMode === "translate" || this.transformMode === "both");
         const showR = select && (this.transformMode === "rotate" || this.transformMode === "both");
@@ -989,6 +1115,9 @@ export class WorldEditor {
         const guideMaterial = this.drawingGuide.surface.material as THREE.MeshBasicMaterial;
         guideMaterial.color.set(this.darkMode ? 0x6ea8ff : 0x2563eb);
         guideMaterial.opacity = this.darkMode ? 0.18 : 0.12;
+        const anchoredGhostMaterial = this.anchoredGuideGhost.material as THREE.MeshBasicMaterial;
+        anchoredGhostMaterial.color.set(this.darkMode ? 0x6ea8ff : 0x2563eb);
+        anchoredGhostMaterial.opacity = this.darkMode ? 0.12 : 0.08;
         this.grid.material.dispose();
         this.scene.remove(this.grid);
         this.grid = new THREE.GridHelper(2000, 200, this.darkMode ? 0x445066 : 0x9aa6b8, this.darkMode ? 0x273244 : 0xd8dee8);
@@ -1005,6 +1134,7 @@ export class WorldEditor {
 
     private emit() {
         this.updateDrawingGuideSurface();
+        this.updateAnchoredGuideGhost();
         this.onChange(this.getUiState());
     }
 
@@ -1021,6 +1151,19 @@ export class WorldEditor {
         this.animationId = requestAnimationFrame(this.animate);
         const delta = Math.min(this.clock.getDelta(), 0.05);
         this.cameraControls.update(delta);
+        if (!this.placement.active) {
+            const cameraMoved =
+                this.previousCameraPosition.distanceToSquared(this.camera.position) > 1e-8 ||
+                1 - Math.abs(this.previousCameraQuaternion.dot(this.camera.quaternion)) > 1e-8;
+            const changed = this.applyGuideModeConstraints(cameraMoved);
+            if (cameraMoved && changed) {
+                this.guideChanged = true;
+                this.updateDrawingGuideSurface();
+                this.updateAnchoredGuideGhost();
+            }
+        }
+        this.previousCameraPosition.copy(this.camera.position);
+        this.previousCameraQuaternion.copy(this.camera.quaternion);
         this.updateInfiniteGrid();
         this.renderer.render(this.scene, this.camera);
     };
